@@ -1025,6 +1025,6 @@ write.csv(tidy_ungulates_3, "tidy_ungulates_3.csv")
 
 # Going to try a change!
 
-# Fantastic, I was able to pull that up on my desktop, let's see if I can send it back to my laptop
+# Fantastic, I was able to pull that up on my desktop! I think everything is working smoothly. I have cursor open on my laptop, and I can copy and paste between each window, and github is now working with each one. I just need to be careful about deleting/overwriting any above code to prevent conflicts from happening. I'm going to create a new rmarkdown (probably not the best wat to do it) just to have a semi-fresh start, using the tidy ungualtes 3 dataframe since that has the clean lat and long. 
 ```
 
