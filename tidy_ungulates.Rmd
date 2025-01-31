@@ -1,0 +1,505 @@
+---
+title: "Tidy Ungulates Cont"
+author: "Ruby Harris-Gavin"
+date: "2025-01-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r prepare environment}
+# clear environment for maximum reproducibility
+rm(list=ls())
+
+# load librarian (package for installing/loading packages)
+if (!require("librarian")) install.packages("librarian")
+
+if (!require("remotes")) install.packages("remotes")
+
+# load required packages
+librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
+                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata
+                 )
+
+library(dplyr)
+library(tidyverse)
+library(measurements)
+library(maps)
+library(ggplot2)
+library(mapdata)
+
+
+
+```
+```{r}
+tidy_ungulates <- read_csv(here("data/tidy_ungulates_jan2925.csv"))
+```
+
+```{r}
+# Function to convert DMS to decimal degrees
+convert_dms_to_decimal <- function(coord) {
+  # Return NA if coord is NA or empty
+  if(is.na(coord) || coord == "") {
+    return(NA)
+  }
+ 
+  # If it's already a number (decimal), return as is
+  if(is.numeric(coord)) {
+    return(coord)
+  }
+ 
+  # Try to convert string to decimal
+  tryCatch({
+    # Remove any °, ', ", and extra spaces
+    coord <- gsub("[°'\"]", " ", coord)
+    coord <- trimws(gsub("\\s+", " ", coord))
+   
+    # Split into components
+    parts <- strsplit(coord, " ")[[1]]
+   
+    # Convert to numeric
+    parts <- as.numeric(parts)
+   
+    # Calculate decimal degrees
+    decimal <- parts[1] +
+              (if(length(parts) > 1) parts[2]/60 else 0) +
+              (if(length(parts) > 2) parts[3]/3600 else 0)
+   
+    # Handle southern and western coordinates
+    if(grepl("S|W", coord, ignore.case = TRUE)) {
+      decimal <- -decimal
+    }
+   
+    return(decimal)
+  }, error = function(e) {
+    # If conversion fails, return NA
+    return(NA)
+  })
+}
+
+# Convert all coordinate columns
+tidy_ungulates <- tidy_ungulates %>%
+  mutate(
+    `Latitude 1 Decimal` = sapply(`Latitude 1`, convert_dms_to_decimal),
+    `Longitude 1 Decimal` = sapply(`Longitude 1`, convert_dms_to_decimal),
+    `Latitude 2 Decimal` = sapply(`Latitude 2`, convert_dms_to_decimal),
+    `Longitude 2 Decimal` = sapply(`Longitude 2`, convert_dms_to_decimal)
+  )
+
+# Show some examples of the conversion
+print("Sample of coordinate conversions:")
+head(tidy_ungulates %>%
+     select(`Latitude 1`, `Latitude 1 Decimal`,
+            `Longitude 1`, `Longitude 1 Decimal`,
+            `Latitude 2`, `Latitude 2 Decimal`,
+            `Longitude 2`, `Longitude 2 Decimal`))
+
+# Count how many conversions were made vs NAs
+conversion_summary <- tidy_ungulates %>%
+  summarise(
+    Lat1_NA = sum(is.na(`Latitude 1 Decimal`)),
+    Long1_NA = sum(is.na(`Longitude 1 Decimal`)),
+    Lat2_NA = sum(is.na(`Latitude 2 Decimal`)),
+    Long2_NA = sum(is.na(`Longitude 2 Decimal`))
+  )
+
+print("\nSummary of NA values in converted coordinates:")
+print(conversion_summary)
+```
+
+```{r}
+# First, let's look at the range of coordinates
+print("Coordinate ranges:")
+summary(tidy_ungulates[c("Latitude 1 Decimal", "Longitude 1 Decimal")])
+
+# Create dataframe of unique coordinates, ensuring values are within normal ranges
+unique_coords <- tidy_ungulates %>%
+  select(`Latitude 1 Decimal`, `Longitude 1 Decimal`) %>%
+  rename(latitude = `Latitude 1 Decimal`, longitude = `Longitude 1 Decimal`) %>%
+  # Filter for reasonable coordinate ranges
+  filter(!is.na(latitude), !is.na(longitude),
+         latitude >= -90, latitude <= 90,
+         longitude >= -180, longitude <= 180) %>%
+  distinct()
+
+# Clean coordinates to ensure they're within valid ranges
+clean_coords <- tidy_ungulates %>%
+  select(`Latitude 1 Decimal`, `Longitude 1 Decimal`) %>%
+  rename(latitude = `Latitude 1 Decimal`, longitude = `Longitude 1 Decimal`) %>%
+  # Filter for valid coordinate ranges
+  filter(!is.na(latitude), !is.na(longitude)) %>%
+  mutate(
+    # If latitude is outside normal range, assume it needs to be divided by 1000
+    latitude = case_when(
+      latitude > 90 ~ latitude / 1000,
+      latitude < -90 ~ latitude / 1000,
+      TRUE ~ latitude
+    ),
+    # If longitude is outside normal range, assume it needs to be divided by 1000
+    longitude = case_when(
+      longitude > 180 ~ longitude / 1000,
+      longitude < -180 ~ longitude / 1000,
+      TRUE ~ longitude
+    )
+  ) %>%
+  # Final filter to ensure all values are within valid ranges
+  filter(latitude >= -90, latitude <= 90,
+         longitude >= -180, longitude <= 180) %>%
+  distinct()
+
+# Print summary of cleaned coordinates
+print("Cleaned coordinate ranges:")
+summary(clean_coords)
+```
+
+```{r}
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points
+  geom_point(data = clean_coords,
+             aes(x = longitude, y = latitude),
+             color = "darkgreen",
+             alpha = 0.6,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Study Locations",
+       x = "Longitude",
+       y = "Latitude") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue")
+  )
+
+# Print summary of points plotted
+cat("\nNumber of unique locations plotted:", nrow(clean_coords))
+
+# The map looks awesome!! Creating new code chunk to give each ungulate family a color.
+```
+
+```{r}
+# Create dataframe with coordinates and family information
+colored_coords <- tidy_ungulates %>%
+  select(`Latitude 1 Decimal`, `Longitude 1 Decimal`, `Ungulate Family`) %>%
+  rename(latitude = `Latitude 1 Decimal`, 
+         longitude = `Longitude 1 Decimal`,
+         family = `Ungulate Family`) %>%
+  # Clean coordinates
+  filter(!is.na(latitude), !is.na(longitude)) %>%
+  mutate(
+    latitude = case_when(
+      latitude > 90 ~ latitude / 1000,
+      latitude < -90 ~ latitude / 1000,
+      TRUE ~ latitude
+    ),
+    longitude = case_when(
+      longitude > 180 ~ longitude / 1000,
+      longitude < -180 ~ longitude / 1000,
+      TRUE ~ longitude
+    )
+  ) %>%
+  filter(latitude >= -90, latitude <= 90,
+         longitude >= -180, longitude <= 180,
+         !is.na(family)) %>%
+  distinct()
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points, colored by family
+  geom_point(data = colored_coords,
+             aes(x = longitude, y = latitude, color = family),
+             alpha = 0.6,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Study Locations by Ungulate Family",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +  # Legend title
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.position = "right",
+    legend.background = element_rect(fill = "white", color = "darkgray")
+  )
+
+# Print summary of points plotted by family
+cat("\nNumber of locations by family:\n")
+print(table(colored_coords$family))
+
+# This map is even better omg. I want to make sure that the points that are between one point and another are correctly avereged and put on the map. The map below only includes the first set of coordinates.
+```
+
+```{r}
+# First, let's clean all coordinates to ensure they're in proper ranges
+tidy_ungulates <- tidy_ungulates %>%
+  mutate(across(ends_with("Decimal"), 
+                ~case_when(
+                  . > 180 ~ . / 1000,
+                  . < -180 ~ . / 1000,
+                  TRUE ~ .
+                )))
+
+# Create average coordinates where both points exist
+tidy_ungulates <- tidy_ungulates %>%
+  mutate(
+    # Calculate average latitude when both exist
+    Latitude_Average = case_when(
+      !is.na(`Latitude 1 Decimal`) & !is.na(`Latitude 2 Decimal`) ~ 
+        (`Latitude 1 Decimal` + `Latitude 2 Decimal`) / 2,
+      !is.na(`Latitude 1 Decimal`) ~ `Latitude 1 Decimal`,
+      !is.na(`Latitude 2 Decimal`) ~ `Latitude 2 Decimal`,
+      TRUE ~ NA_real_
+    ),
+    # Calculate average longitude when both exist
+    Longitude_Average = case_when(
+      !is.na(`Longitude 1 Decimal`) & !is.na(`Longitude 2 Decimal`) ~ 
+        (`Longitude 1 Decimal` + `Longitude 2 Decimal`) / 2,
+      !is.na(`Longitude 1 Decimal`) ~ `Longitude 1 Decimal`,
+      !is.na(`Longitude 2 Decimal`) ~ `Longitude 2 Decimal`,
+      TRUE ~ NA_real_
+    )
+  )
+
+# Print summary of the new columns
+print("Summary of average coordinates:")
+summary(tidy_ungulates[c("Latitude_Average", "Longitude_Average")])
+
+# Count how many rows have averages calculated from both points
+both_points <- sum(!is.na(tidy_ungulates$`Latitude 1 Decimal`) & 
+                  !is.na(tidy_ungulates$`Latitude 2 Decimal`))
+
+print(paste("\nNumber of locations with both points available:", both_points))
+
+# Optional: View some examples where both points existed
+print("\nExample rows with both points:")
+tidy_ungulates %>%
+  filter(!is.na(`Latitude 1 Decimal`), !is.na(`Latitude 2 Decimal`)) %>%
+  select(ends_with("Decimal"), Latitude_Average, Longitude_Average) %>%
+  head()
+```
+
+```{r}
+# Create dataframe with average coordinates and family information
+avg_coords <- tidy_ungulates %>%
+  select(Latitude_Average, Longitude_Average, `Ungulate Family`) %>%
+  rename(latitude = Latitude_Average,
+         longitude = Longitude_Average,
+         family = `Ungulate Family`) %>%
+  # Filter for valid coordinates
+  filter(!is.na(latitude), !is.na(longitude)) %>%
+  filter(latitude >= -90, latitude <= 90,
+         longitude >= -180, longitude <= 180,
+         !is.na(family)) %>%
+  distinct()
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points, colored by family
+  geom_point(data = avg_coords,
+             aes(x = longitude, y = latitude, color = family),
+             alpha = 0.6,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Study Locations by Ungulate Family (Average Coordinates)",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +  # Legend title
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.position = "right",
+    legend.background = element_rect(fill = "white", color = "darkgray")
+  )
+
+# Print summary statistics
+cat("\nNumber of unique average locations plotted:", nrow(avg_coords))
+cat("\n\nNumber of locations by family:\n")
+print(table(avg_coords$family))
+```
+
+```{r}
+# The above map didn't include the single point (un averaged) points. Working to incorporate those below
+
+# First, update the average coordinates to include single points
+tidy_ungulates <- tidy_ungulates %>%
+  mutate(
+    # Update average columns to include single points when no average exists
+    Latitude_Average = case_when(
+      !is.na(`Latitude 1 Decimal`) & !is.na(`Latitude 2 Decimal`) ~ 
+        (`Latitude 1 Decimal` + `Latitude 2 Decimal`) / 2,
+      !is.na(`Latitude 1 Decimal`) ~ `Latitude 1 Decimal`,
+      TRUE ~ NA_real_
+    ),
+    Longitude_Average = case_when(
+      !is.na(`Longitude 1 Decimal`) & !is.na(`Longitude 2 Decimal`) ~ 
+        (`Longitude 1 Decimal` + `Longitude 2 Decimal`) / 2,
+      !is.na(`Longitude 1 Decimal`) ~ `Longitude 1 Decimal`,
+      TRUE ~ NA_real_
+    ),
+    # Create point type identifier
+    point_type = case_when(
+      !is.na(`Latitude 2 Decimal`) ~ "Averaged Location",
+      !is.na(`Latitude 1 Decimal`) ~ "Single Location",
+      TRUE ~ NA_character_
+    )
+  )
+
+# Create mapping dataframe with unique points
+map_coords <- tidy_ungulates %>%
+  select(Latitude_Average, Longitude_Average, `Ungulate Family`, point_type) %>%
+  rename(latitude = Latitude_Average,
+         longitude = Longitude_Average,
+         family = `Ungulate Family`) %>%
+  # Filter for valid coordinates
+  filter(!is.na(latitude), !is.na(longitude)) %>%
+  filter(latitude >= -90, latitude <= 90,
+         longitude >= -180, longitude <= 180,
+         !is.na(family)) %>%
+  distinct()
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points
+  geom_point(data = map_coords,
+             aes(x = longitude, y = latitude, 
+                 color = family,
+                 shape = point_type),
+             alpha = 0.6,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Study Locations by Ungulate Family",
+       subtitle = "Including averaged and single locations (no duplicates)",
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family",
+       shape = "Location Type") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.position = "right",
+    legend.background = element_rect(fill = "white", color = "darkgray")
+  )
+
+# Print summary statistics
+cat("\nTotal unique locations plotted:", nrow(map_coords))
+cat("\n\nBreakdown by point type:\n")
+print(table(map_coords$point_type))
+cat("\n\nBreakdown by family:\n")
+print(table(map_coords$family))
+
+# Check for any potential duplicates
+cat("\nChecking for duplicate coordinates:\n")
+duplicate_check <- map_coords %>%
+  group_by(latitude, longitude) %>%
+  filter(n() > 1) %>%
+  nrow()
+cat("Number of duplicate coordinates:", duplicate_check)
+
+#Okay so this is looking really good, but I think that there might be lots of points without a GPS point because there should be more studies. Going to try and analyze this in a new code chunk.
+```
+
+```{r}
+# Load required packages
+library(dplyr)
+
+# Identify rows with NA coordinates
+na_analysis <- tidy_ungulates %>%
+  mutate(
+    has_coords = !is.na(Latitude_Average) & !is.na(Longitude_Average)
+  ) %>%
+  summarise(
+    total_rows = n(),
+    rows_with_nas = sum(!has_coords),
+    rows_with_coords = sum(has_coords),
+    percent_nas = round(sum(!has_coords) / n() * 100, 1)
+  )
+
+# Print overall NA summary
+cat("Summary of NA Coordinates:\n")
+cat("Total rows in dataset:", na_analysis$total_rows, "\n")
+cat("Rows with NA coordinates:", na_analysis$rows_with_nas, "\n")
+cat("Rows with valid coordinates:", na_analysis$rows_with_coords, "\n")
+cat("Percentage of rows with NAs:", na_analysis$percent_nas, "%\n\n")
+
+# Get list of species with NA coordinates
+species_with_nas <- tidy_ungulates %>%
+  filter(is.na(Latitude_Average) | is.na(Longitude_Average)) %>%
+  group_by(`Ungulate Latin Name`, `Ungulate Family`) %>%
+  summarise(
+    count_nas = n(),
+    .groups = 'drop'
+  ) %>%
+  arrange(desc(count_nas))
+
+# Print species with NAs
+cat("\nSpecies with NA coordinates (sorted by number of NAs):\n")
+print(species_with_nas, n = Inf)
+
+# Summary by family
+family_na_summary <- tidy_ungulates %>%
+  group_by(`Ungulate Family`) %>%
+  summarise(
+    total_records = n(),
+    records_with_nas = sum(is.na(Latitude_Average) | is.na(Longitude_Average)),
+    percent_nas = round(records_with_nas / total_records * 100, 1)
+  ) %>%
+  arrange(desc(records_with_nas))
+
+cat("\nSummary by Ungulate Family:\n")
+print(family_na_summary)
+```
+

@@ -1,0 +1,282 @@
+---
+title: "Uploading and Cleaning Data"
+author: "Ruby Harris-Gavin"
+date: "2025-01-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r prepare environment}
+# clear environment for maximum reproducibility
+rm(list=ls())
+
+# load librarian (package for installing/loading packages)
+if (!require("librarian")) install.packages("librarian")
+
+if (!require("remotes")) install.packages("remotes")
+
+# load required packages
+librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
+                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata
+                 )
+
+library(dplyr)
+library(tidyverse)
+library(measurements)
+library(maps)
+library(ggplot2)
+library(mapdata)
+
+
+
+```
+
+
+# Read in the data
+
+```{r}
+bella <- read_csv(here("data/bella_w.csv")) %>% 
+  mutate(Researcher = "bella_w") 
+  
+donica <- read_csv(here("data/donica_w.csv")) %>% 
+  mutate(Researcher = "donica_w")
+
+diego_1 <- read_csv(here("data/diego_f_1.csv")) %>% 
+  mutate(Researcher = "diego_f")
+
+diego_2 <- read_csv(here("data/diego_f_2.csv")) %>% 
+  mutate(Researcher = "diego_f")
+
+diego_3 <- read_csv(here("data/diego_f_3.csv")) %>% 
+  mutate(Researcher = "diego_f")
+
+asher <- read_csv(here("data/asher_t.csv")) %>% 
+  mutate(Researcher = "asher_t")
+
+briana <- read_csv(here("data/briana_b.csv")) %>% 
+  mutate(Researcher = "briana_b")
+
+gabriel <- read_csv(here("data/gabriel_eu.csv")) %>% 
+  mutate(Researcher = "gabriel_eu")
+
+john_m <- read_csv(here("data/john_m.csv")) %>% 
+  mutate(Researcher = "john_m")
+
+jonathan_l <- read_csv(here("data/jonathan_l.csv")) %>% 
+  mutate(Researcher = "jonathan_l")
+
+judy <- read_csv(here("data/judy_k.csv")) %>% 
+  mutate(Researcher = "judy_k")
+
+keeler <- read_csv(here("data/keeler.csv")) %>% 
+  mutate(Researcher = "keeler_n")
+
+kyra_n <- read_csv(here("data/kyra_n.csv")) %>% 
+  mutate(Researcher = "kyra_n")
+
+kyra_s <- read_csv(here("data/kyra_s.csv")) %>% 
+  mutate(Researcher = "kyra_s")
+
+lajayah <- read_csv(here("data/lajayah_m.csv")) %>% 
+  mutate(Researcher = "lajayah_m")
+
+logan_t <- read_csv(here("data/logan_t.csv")) %>% 
+  mutate(Researcher = "logan_t")
+
+mansi <- read_csv(here("data/mansi.csv")) %>% 
+  mutate(Researcher = "mansi_p")
+
+melissa_c <- read_csv(here("data/melissa_c.csv")) %>% 
+  mutate(Researcher = "melissa_c")
+
+ruby <- read_csv(here("data/ruby_hg.csv")) %>% 
+  mutate(Researcher = "ruby_hg")
+
+metadata <- read_csv(here("data/ungulate_metadata.csv"))
+```
+
+All of the data is in!!
+
+# tidy up metadata
+
+```{r}
+metadata %>% 
+  rename(`Ungulate Latin Name` = `Latin name`)
+```
+
+
+```{r}
+metadata %>% 
+  rename(`Ungulate Latin Name` = `Latin name`) %>% 
+  # select the columns we care about
+  select(`Ungulate Latin Name`, `Avg species weight (kg)`, `Avg species shoulder height (cm)`, `Ruminant/non-ruminant`) -> tidy_metadata
+```
+
+
+# Join dataframes 
+
+```{r first check the column names}
+colnames(bella) == colnames(donica)
+colnames(donica) == colnames(diego_1) # look good! (all TRUE :))
+```
+
+Bind the rows together
+
+```{r}
+#diego_1 %>% 
+  #rbind(diego_2) -> #undergrads
+#this is not working...says column names dont match but I know they do...nope got it now, needed to copy and past one set of columns to all datasets to ensure they match, redownloading time 3 now
+```
+
+
+```{r join the dataframes}
+bella %>% 
+  rbind(donica) %>% 
+  rbind(diego_1) %>% 
+  rbind(diego_2) %>% 
+  rbind(diego_3) %>% 
+  rbind(asher) %>% 
+  rbind(briana) %>% 
+  rbind(gabriel) %>% 
+  rbind(john_m) %>% 
+  rbind(jonathan_l) %>% 
+  rbind(judy) %>% 
+  rbind(keeler) %>% 
+  rbind(kyra_s) %>% 
+  rbind(kyra_n) %>% 
+  rbind(lajayah) %>% 
+  rbind(logan_t) %>% 
+  rbind(mansi) %>% 
+  rbind(melissa_c) %>% 
+  rbind(ruby) -> undergrads
+
+tidy_metadata %>% 
+  right_join(undergrads, by = "Ungulate Latin Name") -> ungulates
+```
+
+```{r}
+ungulates %>%
+  select(`Ungulate Latin Name`, `Avg species weight (kg)`, `Avg species shoulder height (cm)`, `Ruminant/non-ruminant`, `Researcher`, `Ungulate Family`, `Ungulate Common Name`, `Binned season`, `Year started`, `Year ended`, `Plant Reported Family`, `Plant Reported Name`, `% Contribution to Diet`, `Data type`, `Binned units`, `Binned method`, `Total sample size`, `Binned total sample size units`, `Latitude 1`, `Longitude 1`, `Latitude 2`, `Longitude 2`, `Country`, `Biome`, `Citation (abrv)`) -> tidy_ungulates
+  
+# Now I have a nice clean datasheet with everything I want in it, though I need to 1. add a plant accepted name column and plant accepted family etc., 2. correct lats/longs, 3. assign identifier for each undergrad, 4. create seperate citation page and then identifier in dataset
+
+#exporting cleaner data below!
+write.csv(tidy_ungulates, "tidy_ungulates.csv")
+```
+
+# Now, going to open up laptop to use cursor to:
+1) correct lat and long
+2) add plant accepted name
+
+```{r}
+# Function to convert DMS to decimal degrees
+convert_dms_to_decimal <- function(coord) {
+  # Return NA if coord is NA or empty
+  if(is.na(coord) || coord == "") {
+    return(NA)
+  }
+ 
+  # If it's already a number (decimal), return as is
+  if(is.numeric(coord)) {
+    return(coord)
+  }
+ 
+  # Try to convert string to decimal
+  tryCatch({
+    # Remove any °, ', ", and extra spaces
+    coord <- gsub("[°'\"]", " ", coord)
+    coord <- trimws(gsub("\\s+", " ", coord))
+   
+    # Split into components
+    parts <- strsplit(coord, " ")[[1]]
+   
+    # Convert to numeric
+    parts <- as.numeric(parts)
+   
+    # Calculate decimal degrees
+    decimal <- parts[1] +
+              (if(length(parts) > 1) parts[2]/60 else 0) +
+              (if(length(parts) > 2) parts[3]/3600 else 0)
+   
+    # Handle southern and western coordinates
+    if(grepl("S|W", coord, ignore.case = TRUE)) {
+      decimal <- -decimal
+    }
+   
+    return(decimal)
+  }, error = function(e) {
+    # If conversion fails, return NA
+    return(NA)
+  })
+}
+
+# Convert all coordinate columns
+tidy_ungulates <- tidy_ungulates %>%
+  mutate(
+    `Latitude 1 Decimal` = sapply(`Latitude 1`, convert_dms_to_decimal),
+    `Longitude 1 Decimal` = sapply(`Longitude 1`, convert_dms_to_decimal),
+    `Latitude 2 Decimal` = sapply(`Latitude 2`, convert_dms_to_decimal),
+    `Longitude 2 Decimal` = sapply(`Longitude 2`, convert_dms_to_decimal)
+  )
+```
+
+
+
+```{r}
+# Get world map data
+world_map <- map_data("world")
+
+# Create a dataframe with all unique coordinates
+# First, get coordinates from Location 1
+coords1 <- tidy_ungulates %>%
+  select(`Latitude 1 Decimal`, `Longitude 1 Decimal`) %>%
+  rename(latitude = `Latitude 1 Decimal`, longitude = `Longitude 1 Decimal`) %>%
+  distinct() %>%
+  filter(!is.na(latitude), !is.na(longitude))
+
+# Then get coordinates from Location 2
+coords2 <- tidy_ungulates %>%
+  select(`Latitude 2 Decimal`, `Longitude 2 Decimal`) %>%
+  rename(latitude = `Latitude 2 Decimal`, longitude = `Longitude 2 Decimal`) %>%
+  distinct() %>%
+  filter(!is.na(latitude), !is.na(longitude))
+
+# Combine all coordinates
+all_coords <- bind_rows(coords1, coords2) %>%
+  distinct()
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map,
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray",
+               color = "darkgray") +
+  # Add the points
+  geom_point(data = all_coords,
+             aes(x = longitude, y = latitude),
+             color = "green",
+             alpha = 0.6,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Study Locations",
+       x = "Longitude",
+       y = "Latitude") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue")
+  )
+
+# Print summary of points plotted
+cat("\nNumber of unique locations plotted:", nrow(all_coords))
+
+```
+
