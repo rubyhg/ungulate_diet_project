@@ -33,8 +33,10 @@ library(mapdata)
 
 
 ```
+
 ```{r}
 tidy_ungulates <- read_csv(here("data/tidy_ungulates_jan3025.csv"))
+
 ```
 
 ```{r}
@@ -499,8 +501,7 @@ family_na_summary <- tidy_ungulates %>%
   ) %>%
   arrange(desc(records_with_nas))
 
-cat("\nSummary by Ungulate Family:\n")
-print(family_na_summary)
+
 
 ```
 
@@ -1021,5 +1022,6 @@ cat("\nNumber of coordinates outside valid ranges:", nrow(invalid_coords_3))
 # YES!!! lat long is fully correct for tidy_ungulates_3. Going to download that dataframe now to work with tonight or tomorrow. Next up is plotting some maps. I still need to decide to either remove the average column or create an updated one in the below dataframe.
 
 write.csv(tidy_ungulates_3, "tidy_ungulates_3.csv")
+
 ```
 
