@@ -20,11 +20,7 @@ if (!require("remotes")) install.packages("remotes")
 
 # load required packages
 librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
-<<<<<<< HEAD
-                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata
-=======
                  tidyverse, measurements, dplyr, maps, ggplot2, mapdata, janitor
->>>>>>> 8b8428f2f2212bf8c7122a78d7fda04144ab8798
                  )
 
 library(dplyr)
@@ -37,12 +33,10 @@ library(mapdata)
 
 
 ```
+
 ```{r}
-<<<<<<< HEAD
-tidy_ungulates <- read_csv(here("data/tidy_ungulates_jan2925.csv"))
-=======
 tidy_ungulates <- read_csv(here("data/tidy_ungulates_jan3025.csv"))
->>>>>>> 8b8428f2f2212bf8c7122a78d7fda04144ab8798
+
 ```
 
 ```{r}
@@ -507,10 +501,7 @@ family_na_summary <- tidy_ungulates %>%
   ) %>%
   arrange(desc(records_with_nas))
 
-cat("\nSummary by Ungulate Family:\n")
-print(family_na_summary)
-<<<<<<< HEAD
-=======
+
 
 ```
 
@@ -1031,6 +1022,6 @@ cat("\nNumber of coordinates outside valid ranges:", nrow(invalid_coords_3))
 # YES!!! lat long is fully correct for tidy_ungulates_3. Going to download that dataframe now to work with tonight or tomorrow. Next up is plotting some maps. I still need to decide to either remove the average column or create an updated one in the below dataframe.
 
 write.csv(tidy_ungulates_3, "tidy_ungulates_3.csv")
->>>>>>> 8b8428f2f2212bf8c7122a78d7fda04144ab8798
+
 ```
 

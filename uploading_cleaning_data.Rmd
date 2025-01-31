@@ -159,20 +159,14 @@ tidy_metadata %>%
 
 ```{r}
 ungulates %>%
-<<<<<<< HEAD
-  select(`Ungulate Latin Name`, `Avg species weight (kg)`, `Avg species shoulder height (cm)`, `Ruminant/non-ruminant`, `Researcher`, `Ungulate Family`, `Ungulate Common Name`, `Binned season`, `Year started`, `Year ended`, `Plant Reported Family`, `Plant Reported Name`, `% Contribution to Diet`, `Data type`, `Binned units`, `Binned method`, `Total sample size`, `Binned total sample size units`, `Latitude 1`, `Longitude 1`, `Latitude 2`, `Longitude 2`, `Country`, `Biome`, `Citation (abrv)`) -> tidy_ungulates
-=======
   select(`Ungulate Latin Name`, `Avg species weight (kg)`, `Avg species shoulder height (cm)`, `Ruminant/non-ruminant`, `Researcher`, `Ungulate Family`, `Ungulate Common Name`, `Binned season`, `Year started`, `Year ended`, `Plant Reported Family`, `Plant Reported Name`, `% Contribution to Diet`, `Data type`, `Binned units`, `Binned method`, `Total sample size`, `Binned total sample size units`, `Latitude 1`, `Longitude 1`, `Latitude 2`, `Longitude 2`, `Reported Study Site Location`, `Country`, `Biome`, `Citation (abrv)`) -> tidy_ungulates
->>>>>>> 8b8428f2f2212bf8c7122a78d7fda04144ab8798
   
 # Now I have a nice clean datasheet with everything I want in it, though I need to 1. add a plant accepted name column and plant accepted family etc., 2. correct lats/longs, 3. assign identifier for each undergrad, 4. create seperate citation page and then identifier in dataset
 
 #exporting cleaner data below!
-<<<<<<< HEAD
-write.csv(tidy_ungulates, "tidy_ungulates.csv")
-=======
+
 write.csv(tidy_ungulates, "tidy_ungulates_jan3025.csv")
->>>>>>> 8b8428f2f2212bf8c7122a78d7fda04144ab8798
+
 ```
 
 # Now, going to open up laptop to use cursor to:
