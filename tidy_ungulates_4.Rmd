@@ -757,3 +757,7 @@ head(res)
 
 =======
 >>>>>>> 8dacc958bdf6525d1b47ee659b94234b396f50bc
+
+
+
+# Okay! Back again on Feb 20th at 3:40pm. Going to start by properly reading the paper to understand it and see how the program should behave. First I want a trial commit
