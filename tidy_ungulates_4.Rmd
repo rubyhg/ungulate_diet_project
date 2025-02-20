@@ -400,6 +400,7 @@ unique_coords_2 %>%
 ```
 
 
+
 ```{r}
 # another try
 # Load required packages
@@ -545,6 +546,7 @@ ggplot() +
 
 
 # just not there yet, and I need to cook dinner!!
+<<<<<<< HEAD
 
 # okay back again on Feb 19th, 2:20pm! I have sent the above image to cursor and am still trying to fix those lines made of tons of dots. Trying in new code chunk below. 
 
@@ -753,3 +755,5 @@ head(res)
 ```
 
 
+=======
+>>>>>>> 8dacc958bdf6525d1b47ee659b94234b396f50bc
