@@ -1,0 +1,755 @@
+---
+title: "tidy_ungulates_3"
+author: "Ruby Harris-Gavin"
+date: "2025-01-31"
+output: html_document
+---
+
+```{r prepare environment}
+# clear environment for maximum reproducibility
+rm(list=ls())
+
+# load librarian (package for installing/loading packages)
+if (!require("librarian")) install.packages("librarian")
+
+if (!require("remotes")) install.packages("remotes")
+
+# load required packages
+librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
+                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata, janitor
+                 )
+
+library(dplyr)
+library(tidyverse)
+library(measurements)
+library(maps)
+library(ggplot2)
+library(mapdata)
+
+
+
+```
+
+```{r}
+tidy_ungulates_4 <- read_csv(here("data/tidy_ungulates_4.csv"))
+
+
+```
+
+```{r}
+
+# Load required packages
+library(dplyr)
+library(stringr)
+
+# Function to convert coordinates to decimal
+convert_to_decimal <- function(coord) {
+  # Return NA if coord is NA or empty
+  if(all(is.na(coord)) || all(coord == "")) {
+    return(NA)
+  }
+ 
+  # Process single coordinate
+  process_single_coord <- function(x) {
+    if(is.na(x) || x == "") return(NA)
+   
+    # If already numeric, return as is
+    if(is.numeric(x)) return(x)
+   
+    # Convert to character
+    x <- as.character(x)
+   
+    # For format "33.2385 N" or "106.3464 W"
+    if(grepl("[NSEW]", x) && !grepl("\\d\\.\\d+\\.\\d+", x)) {
+      num <- as.numeric(str_extract(x, "[0-9.]+"))
+      dir <- str_extract(x, "[NSEW]")
+     
+      if(dir %in% c("S", "W")) {
+        num <- -num
+      }
+      return(num)
+    }
+   
+    # For format "33.23.85 N"
+    if(grepl("\\d+\\.\\d+\\.\\d+\\s*[NSEW]", x)) {
+      # Extract numbers and direction
+      nums <- str_extract_all(x, "\\d+")[[1]]
+      dir <- str_extract(x, "[NSEW]")
+     
+      # Convert to decimal
+      decimal <- as.numeric(nums[1]) +
+                as.numeric(nums[2])/60 +
+                as.numeric(nums[3])/3600
+     
+      if(dir %in% c("S", "W")) {
+        decimal <- -decimal
+      }
+      return(decimal)
+    }
+   
+    # For degrees minutes seconds format
+    if(grepl("°|'|\"|\\s", x)) {
+      x <- gsub("[°'\"]", " ", x)
+      x <- trimws(gsub("\\s+", " ", x))
+     
+      parts <- strsplit(x, " ")[[1]]
+      parts <- as.numeric(parts)
+     
+      decimal <- parts[1] +
+                (if(length(parts) > 1) parts[2]/60 else 0) +
+                (if(length(parts) > 2) parts[3]/3600 else 0)
+     
+      if(grepl("S|W", x, ignore.case = TRUE)) {
+        decimal <- -decimal
+      }
+     
+      return(decimal)
+    }
+   
+    # Try direct conversion
+    tryCatch(as.numeric(x), error = function(e) NA)
+  }
+ 
+  # Apply to vector
+  sapply(coord, process_single_coord)
+}
+
+# Convert coordinates and create new decimal columns
+tidy_ungulates_4 <- tidy_ungulates_4 %>%
+  mutate(
+    latitude_1_decimal = convert_to_decimal(latitude_1),
+    longitude_1_decimal = convert_to_decimal(longitude_1),
+    latitude_2_decimal = convert_to_decimal(latitude_2),
+    longitude_2_decimal = convert_to_decimal(longitude_2)
+  )
+
+# Print summary of results
+print("Summary of converted coordinates:")
+summary(tidy_ungulates_4[c("latitude_1_decimal", "longitude_1_decimal",
+                          "latitude_2_decimal", "longitude_2_decimal")])
+
+# Show some example conversions
+print("\nSample of original and converted coordinates:")
+head(tidy_ungulates_4 %>%
+     select(latitude_1, latitude_1_decimal,
+            longitude_1, longitude_1_decimal,
+            latitude_2, latitude_2_decimal,
+            longitude_2, longitude_2_decimal), 10)
+
+# Check for coordinates outside valid ranges
+invalid_coords <- tidy_ungulates_4 %>%
+  filter((!is.na(latitude_1_decimal) & (abs(latitude_1_decimal) > 90)) |
+         (!is.na(longitude_1_decimal) & (abs(longitude_1_decimal) > 180)) |
+         (!is.na(latitude_2_decimal) & (abs(latitude_2_decimal) > 90)) |
+         (!is.na(longitude_2_decimal) & (abs(longitude_2_decimal) > 180)))
+
+cat("\nNumber of coordinates outside valid ranges:", nrow(invalid_coords))
+
+
+```
+
+```{r}
+# Show rows with NAs in average coordinates
+na_rows <- tidy_ungulates_4 %>%
+  filter(is.na(latitude_average) | is.na(longitude_average)) %>%
+  select(ungulate_latin_name, ungulate_family, 
+         latitude_1_decimal, longitude_1_decimal,
+         latitude_2_decimal, longitude_2_decimal,
+         latitude_average, longitude_average)
+
+# Print summary
+print(paste("Total rows with NAs:", nrow(na_rows)))
+print("\nBreakdown by family:")
+table(na_rows$ungulate_family)
+
+# Show the first few rows
+print("\nSample of rows with NAs:")
+head(na_rows, 10)
+
+
+```
+
+```{r}
+# Update average coordinates to include single coordinate data
+tidy_ungulates_5 <- tidy_ungulates_4 %>%
+  mutate(
+    # Calculate average latitude
+    latitude_average = case_when(
+      # When both coordinates exist, calculate average
+      !is.na(latitude_1_decimal) & !is.na(latitude_2_decimal) ~ 
+        (latitude_1_decimal + latitude_2_decimal) / 2,
+      # When only first coordinate exists, use it
+      !is.na(latitude_1_decimal) ~ latitude_1_decimal,
+      # When only second coordinate exists, use it
+      !is.na(latitude_2_decimal) ~ latitude_2_decimal,
+      # If neither exists, return NA
+      TRUE ~ NA_real_
+    ),
+    # Calculate average longitude
+    longitude_average = case_when(
+      # When both coordinates exist, calculate average
+      !is.na(longitude_1_decimal) & !is.na(longitude_2_decimal) ~ 
+        (longitude_1_decimal + longitude_2_decimal) / 2,
+      # When only first coordinate exists, use it
+      !is.na(longitude_1_decimal) ~ longitude_1_decimal,
+      # When only second coordinate exists, use it
+      !is.na(longitude_2_decimal) ~ longitude_2_decimal,
+      # If neither exists, return NA
+      TRUE ~ NA_real_
+    )
+  )
+
+# Check the results
+print("Summary of coordinate availability:")
+tidy_ungulates_5 %>%
+  summarise(
+    total_rows = n(),
+    rows_with_both = sum(!is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
+    rows_with_only_first = sum(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)),
+    rows_with_only_second = sum(is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
+    rows_with_averages = sum(!is.na(latitude_average)),
+    rows_missing_averages = sum(is.na(latitude_average))
+  ) %>%
+  print()
+
+# Show some examples
+print("\nSample of rows with single coordinates:")
+head(tidy_ungulates_5 %>%
+     filter(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)) %>%
+     select(ungulate_latin_name,
+            latitude_1_decimal, longitude_1_decimal,
+            latitude_2_decimal, longitude_2_decimal,
+            latitude_average, longitude_average))
+
+# let's see if it worked
+
+# Show rows with NAs in average coordinates
+na_rows_2 <- tidy_ungulates_5 %>%
+  filter(is.na(latitude_average) | is.na(longitude_average))
+
+# Okay, I see the rows that need to be fixed, I'm going to do that separately and download a csv
+
+write.csv(na_rows_2, "na_rows_2.csv")
+```
+
+```{r}
+
+na_rows_3 <- read_csv(here("data/na_rows_3.csv"))
+
+# Update the coordinates using rows from na_rows_3
+
+# First, check column types
+print("Column types in tidy_ungulates_5:")
+str(select(tidy_ungulates_5, x1, latitude_1, longitude_1, latitude_2, longitude_2))
+print("\nColumn types in na_rows_3:")
+str(select(na_rows_3, x1, latitude_1, longitude_1, latitude_2, longitude_2))
+
+# Convert columns to character type in na_rows_3 before updating
+tidy_ungulates_6 <- tidy_ungulates_5 %>%
+  rows_update(
+    na_rows_3 %>% 
+      select(x1, latitude_1, longitude_1, latitude_2, longitude_2) %>%
+      mutate(across(c(latitude_1, longitude_1, latitude_2, longitude_2), as.character)),
+    by = "x1"
+  )
+
+# Verify the update
+print("\nSample of updated rows:")
+tidy_ungulates_6 %>%
+  filter(x1 %in% na_rows_3$x1) %>%
+  select(x1, latitude_1, longitude_1, latitude_2, longitude_2) %>%
+  head(10)
+
+```
+I happen to know that there are a ton blank rows with just NA for the ungulate latin name, so i want to make sure to remove those eventually, but for now, I want to be able to join the previous dataframes altogether so i wont delete any rows yet. Let's try some maps now!!
+
+```{r}
+#This is the best option so far, but unsure what those random lines are...
+
+# Load required packages
+library(ggplot2)
+library(maps)
+library(dplyr)
+
+# Create dataframe with unique coordinates and family information
+unique_coords <- tidy_ungulates_6 %>%
+  select(latitude_1_decimal, longitude_1_decimal, ungulate_family) %>%
+  # Filter out NAs and invalid coordinates
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_1_decimal)) %>%
+  filter(latitude_1_decimal >= -90, latitude_1_decimal <= 90,
+         longitude_1_decimal >= -180, longitude_1_decimal <= 180) %>%
+  # Keep only unique combinations
+  distinct()
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points, colored by family
+  geom_point(data = unique_coords,
+             aes(x = longitude_1_decimal, y = latitude_1_decimal, 
+                 color = ungulate_family),
+             alpha = 0.7,
+             size = 2) +
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Ungulate Study Locations",
+       subtitle = paste("Total unique locations:", nrow(unique_coords)),
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.background = element_rect(fill = "white", color = "darkgray")
+  )
+
+# Print summary statistics
+cat("\nNumber of unique locations by family:\n")
+print(table(unique_coords$ungulate_family))
+```
+
+```{r}
+# trying again! Not right either, not enough points AND still lines though fewer
+
+# Load required packages
+library(ggplot2)
+library(maps)
+library(dplyr)
+
+# Create dataframe with unique coordinates and family information
+unique_coords_2 <- tidy_ungulates_6 %>%
+  select(latitude_1_decimal, longitude_2_decimal, ungulate_family) %>%
+  # Filter out NAs and invalid coordinates
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_2_decimal)) %>%
+  filter(latitude_1_decimal >= -90, latitude_1_decimal <= 90,
+         longitude_2_decimal >= -180, longitude_2_decimal <= 180) %>%
+  # Keep only unique combinations
+  distinct()
+
+# Create family labels with counts
+family_counts <- unique_coords_2 %>%
+  count(ungulate_family) %>%
+  mutate(family_label = paste0(ungulate_family, " (n=", n, ")"))
+
+# Join the labels back to the coordinates
+unique_coords_2 <- unique_coords_2 %>%
+  left_join(family_counts, by = "ungulate_family") %>%
+  # Ensure coordinates are numeric
+  mutate(
+    latitude_1_decimal = as.numeric(latitude_1_decimal),
+    longitude_2_decimal = as.numeric(longitude_2_decimal)
+  )
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points, colored by family
+  geom_point(data = unique_coords_2,
+             aes(x = longitude_2_decimal, y = latitude_1_decimal, 
+                 color = family_label),
+             alpha = 0.7,
+             size = 2,
+             shape = 16) + # Explicitly set point shape
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Ungulate Study Locations",
+       subtitle = paste("Total unique locations:", nrow(unique_coords_2)),
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.background = element_rect(fill = "white", color = "darkgray"),
+    legend.text = element_text(size = 10)
+  )
+
+# Print coordinates that might be causing lines
+print("Checking for potential problematic coordinates:")
+unique_coords_2 %>%
+  group_by(longitude_2_decimal, latitude_1_decimal) %>%
+  filter(n() > 1) %>%
+  arrange(longitude_2_decimal, latitude_1_decimal) %>%
+  print(n = Inf)
+```
+
+
+```{r}
+# another try
+# Load required packages
+library(ggplot2)
+library(maps)
+library(dplyr)
+
+# Create dataframe with unique coordinates and family information
+unique_coords_3 <- tidy_ungulates_6 %>%
+  select(latitude_1_decimal, longitude_1_decimal, ungulate_family) %>%
+  # Filter out NAs and invalid coordinates
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_1_decimal),
+         !is.na(ungulate_family)) %>%  # Remove NA ungulate families
+  filter(latitude_1_decimal >= -90, latitude_1_decimal <= 90,
+         longitude_1_decimal >= -180, longitude_1_decimal <= 180) %>%
+  # Keep only unique combinations
+  distinct()
+
+# Create family labels with counts
+family_counts <- unique_coords_3 %>%
+  count(ungulate_family) %>%
+  mutate(family_label = paste0(ungulate_family, " (", n, ")"))
+
+# Join the labels back to the coordinates
+unique_coords_3 <- unique_coords_3 %>%
+  left_join(family_counts, by = "ungulate_family") %>%
+  # Ensure coordinates are numeric
+  mutate(
+    latitude_1_decimal = as.numeric(latitude_1_decimal),
+    longitude_1_decimal = as.numeric(longitude_1_decimal)
+  )
+
+# Get world map data
+world_map <- map_data("world")
+
+# Create the map
+ggplot() +
+  # Add the world map base layer
+  geom_polygon(data = world_map, 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  # Add the points, colored by family
+  geom_point(data = unique_coords_3,
+             aes(x = longitude_1_decimal, y = latitude_1_decimal, 
+                 color = family_label),
+             alpha = 0.7,
+             size = 2,
+             shape = 16) + # Explicitly set point shape
+  # Set map projection
+  coord_quickmap() +
+  # Set theme and labels
+  theme_minimal() +
+  labs(title = "Ungulate Study Locations",
+       subtitle = paste("Total unique locations:", nrow(unique_coords_3)),
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +
+  # Customize theme
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.background = element_rect(fill = "white", color = "darkgray"),
+    legend.text = element_text(size = 10)
+  )
+
+# Print summary of coordinates by family
+print("\nCoordinate counts by family:")
+table(unique_coords_3$ungulate_family)
+```
+
+```{r}
+# so close!!! Fixing the noise now?
+
+# Load required packages
+library(ggplot2)
+library(maps)
+library(dplyr)
+
+# First get unique locations and their counts by family
+family_counts <- tidy_ungulates_6 %>%
+  filter(!is.na(ungulate_family),
+         !is.na(latitude_1_decimal), !is.na(longitude_1_decimal)) %>%
+  # Count unique locations per family
+  group_by(ungulate_family) %>%
+  summarise(n = n_distinct(latitude_1_decimal, longitude_1_decimal)) %>%
+  mutate(family_label = paste0(ungulate_family, " (", n, ")"))
+
+# Create dataset with unique coordinates (no repeats)
+unique_coords_3 <- tidy_ungulates_6 %>%
+  select(latitude_1_decimal, longitude_1_decimal, ungulate_family) %>%
+  # Filter out NAs and invalid coordinates
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_1_decimal),
+         !is.na(ungulate_family)) %>%
+  filter(latitude_1_decimal >= -90, latitude_1_decimal <= 90,
+         longitude_1_decimal >= -180, longitude_1_decimal <= 180) %>%
+  # Keep only unique coordinate combinations
+  distinct(latitude_1_decimal, longitude_1_decimal, .keep_all = TRUE) %>%
+  # Add a small random jitter to break up lines
+  mutate(
+    latitude_1_decimal = latitude_1_decimal + runif(n(), -0.1, 0.1),
+    longitude_1_decimal = longitude_1_decimal + runif(n(), -0.1, 0.1)
+  )
+
+# Join the unique location counts to the coordinates
+unique_coords_3 <- unique_coords_3 %>%
+  left_join(family_counts, by = "ungulate_family")
+
+# Create the map
+ggplot() +
+  geom_polygon(data = map_data("world"), 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  geom_point(data = unique_coords_3,
+             aes(x = longitude_1_decimal, y = latitude_1_decimal, 
+                 color = family_label),
+             alpha = 0.7,
+             size = 2,
+             shape = 16) +
+  coord_quickmap() +
+  theme_minimal() +
+  labs(title = "Ungulate Study Locations",
+       subtitle = paste("Total unique locations:", nrow(unique_coords_3)),
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.background = element_rect(fill = "white", color = "darkgray"),
+    legend.text = element_text(size = 10)
+  )
+
+
+```
+
+
+# just not there yet, and I need to cook dinner!!
+
+# okay back again on Feb 19th, 2:20pm! I have sent the above image to cursor and am still trying to fix those lines made of tons of dots. Trying in new code chunk below. 
+
+```{r}
+# Load required packages
+library(ggplot2)
+library(maps)
+library(dplyr)
+
+# First, let's identify the problematic coordinates
+problem_coords <- tidy_ungulates_6 %>%
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_1_decimal)) %>%
+  group_by(longitude_1_decimal) %>%
+  summarise(count = n()) %>%
+  filter(count > 10)
+
+print("Coordinates causing lines:")
+print(problem_coords)
+
+# Now create the main plot data
+# First get unique locations and their counts by family
+family_counts <- tidy_ungulates_6 %>%
+  filter(!is.na(ungulate_family),
+         !is.na(latitude_1_decimal), !is.na(longitude_1_decimal)) %>%
+  group_by(ungulate_family) %>%
+  summarise(n = n_distinct(latitude_1_decimal, longitude_1_decimal)) %>%
+  mutate(family_label = paste0(ungulate_family, " (", n, ")"))
+
+# Create dataset with unique coordinates (no repeats)
+unique_coords_3 <- tidy_ungulates_6 %>%
+  select(latitude_1_decimal, longitude_1_decimal, ungulate_family) %>%
+  filter(!is.na(latitude_1_decimal), !is.na(longitude_1_decimal),
+         !is.na(ungulate_family)) %>%
+  # Round coordinates to remove tiny variations
+  mutate(
+    latitude_1_decimal = round(as.numeric(latitude_1_decimal), 2),
+    longitude_1_decimal = round(as.numeric(longitude_1_decimal), 2)
+  ) %>%
+  # Group by rounded coordinates and keep one row per location
+  group_by(latitude_1_decimal, longitude_1_decimal) %>%
+  slice(1) %>%
+  ungroup()
+
+# Join the unique location counts to the coordinates
+unique_coords_3 <- unique_coords_3 %>%
+  left_join(family_counts, by = "ungulate_family")
+
+# Create the map
+ggplot() +
+  geom_polygon(data = map_data("world"), 
+               aes(x = long, y = lat, group = group),
+               fill = "lightgray", 
+               color = "darkgray") +
+  geom_point(data = unique_coords_3,
+             aes(x = longitude_1_decimal, y = latitude_1_decimal, 
+                 color = family_label),
+             alpha = 0.7,
+             size = 2,
+             shape = 16,
+             position = "identity") +  # Force exact positioning
+  coord_quickmap() +
+  theme_minimal() +
+  labs(title = "Ungulate Study Locations",
+       subtitle = paste("Total unique locations:", nrow(unique_coords_3)),
+       x = "Longitude",
+       y = "Latitude",
+       color = "Ungulate Family") +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 12),
+    legend.position = "right",
+    panel.grid.major = element_line(color = "white"),
+    panel.background = element_rect(fill = "aliceblue"),
+    legend.background = element_rect(fill = "white", color = "darkgray"),
+    legend.text = element_text(size = 10)
+  )
+
+# Print the number of points at each problematic longitude
+print("\nDetailed view of problematic coordinates:")
+unique_coords_3 %>%
+  filter(longitude_1_decimal %in% problem_coords$longitude_1_decimal) %>%
+  arrange(longitude_1_decimal, latitude_1_decimal) %>%
+  print(n = Inf)
+```
+
+# So, this isn't working either. I think there are lots of species with similar/overlapping locations...? Or there are a few where folks dragged the decimals and they increased ever so slightly? regardless, this map is good enough for our lab meeting, where I can also ask people how this might be fixed. What I want to move onto now is trying to get the corrected plant names going using tidy_ungulates_6. 
+
+# Still to-do: 1. remove the blank rows from the dataset 
+
+```{r}
+# Attempted to use taxize below but the resolution is just not what I need, trying U.Taxonstand next
+# Install ape first
+install.packages("ape", type = "binary")
+
+# Then igraph
+install.packages("igraph", type = "binary")
+
+# Then phangorn
+install.packages("phangorn", type = "binary")
+
+# Finally taxize
+install.packages("taxize", type = "binary")
+
+
+
+# First, install and load the taxize package
+library(taxize)
+library(dplyr)
+
+# Create a function to handle the plant name resolution with error handling
+check_plant_name <- function(plant_name) {
+  if (is.na(plant_name) || plant_name == "") {
+    return(NA)
+  }
+  
+  tryCatch({
+    # Using TROPICOS database for plant names
+    result <- tnrs(plant_name, source = "tropicos")
+    if (!is.null(result) && nrow(result) > 0) {
+      return(result$accepted_name[1])  # Return the corrected name
+    } else {
+      return(NA)
+    }
+  }, error = function(e) {
+    return(NA)
+  })
+}
+
+# Create a new column for corrected names and process each plant name
+# Note: This might take some time due to API rate limits
+tidy_ungulates_6 <- tidy_ungulates_6 %>%
+  mutate(plant_corrected_name = sapply(plant_reported_name, check_plant_name))
+
+# Create dataframe of unresolved plants
+unresolved_plants <- tidy_ungulates_6 %>%
+  filter(is.na(plant_corrected_name) & !is.na(plant_reported_name)) %>%
+  select(plant_reported_name, plant_corrected_name, everything())
+
+```
+
+# Using U.Taxonstand instead
+
+```{r}
+devtools::install_github("ecoinfor/U.Taxonstand")
+
+# FYI, I had to read the paper myself to get this to download correctly! Cursor was freaking out. Now let's see what the rest of it's code has to say - I asked it to use the author's format so fingers crossed
+
+# Load required packages
+library(U.Taxonstand)
+library(dplyr)
+
+# Okay I realized that cursor didn't know all of the data types, it's trying to correct it in the code below
+```
+
+```{r}
+# Load required packages
+library(U.Taxonstand)
+library(dplyr)
+library(stringr)
+
+# First, let's examine what we're working with
+cat("Sample of plant names:\n")
+head(tidy_ungulates_6$plant_reported_name, 20)
+
+#Great! I see a mix of: Full binomial names (e.g., "Fagonia glutinosa"), Species with "spp." (e.g., "Chloris spp."), Some possible typos (e.g., "Hereropogon" might be "Heteropogon"), Let's create a simple data frame for matching, just as a first step:
+
+# Create a simple data frame for matching
+# Create the input data frame in the exact format required
+splist <- data.frame(
+  ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
+  Name = unique(tidy_ungulates_6$plant_reported_name),
+  stringsAsFactors = FALSE
+)
+
+# Look at the structure to verify
+str(splist)
+
+# And look at the first few entries
+head(splist)
+
+
+# First, let's create a data frame exactly as shown in their example
+splist <- data.frame(
+  ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
+  SPECIES = unique(tidy_ungulates_6$plant_reported_name)
+)
+
+# Let's look at what we have
+print("Structure of our data:")
+str(splist)
+print("\nFirst few rows:")
+head(splist)
+
+
+# Try the name matching
+res <- nameMatch(
+  spList = splist,
+  author = FALSE,
+  max.distance = 1
+)
+
+# Look at the results
+head(res)
+
+#above just isn't working at the res part - going to read paper myself to try and digest it!
+```
+
+
