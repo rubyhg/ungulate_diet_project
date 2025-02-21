@@ -1,0 +1,40 @@
+---
+title: "tidy_ungulates_5"
+author: "Ruby Harris-Gavin"
+date: "2025-02-21"
+output: html_document
+---
+
+```{r prepare environment}
+# clear environment for maximum reproducibility
+rm(list=ls())
+
+# load librarian (package for installing/loading packages)
+if (!require("librarian")) install.packages("librarian")
+
+if (!require("remotes")) install.packages("remotes")
+
+# load required packages
+librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
+                 tidyverse, measurements, plyr, dplyr, maps, ggplot2, mapdata, janitor, stringr, readr, U.Taxonstand
+                 )
+
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(measurements)
+library(maps)
+library(ggplot2)
+library(mapdata)
+library(here)
+library(U.Taxonstand)
+library(magrittr)
+library(stringr)
+library(readr)
+library(U.Taxonstand)
+```
+
+```{r}
+tidy_ungulates_4 <- read_csv("data/tidy_ungulates_4.csv")
+```
+

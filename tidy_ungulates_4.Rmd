@@ -14,9 +14,11 @@ if (!require("librarian")) install.packages("librarian")
 
 if (!require("remotes")) install.packages("remotes")
 
+if (!require("here")) install.packages("here")
+
 # load required packages
 librarian::shelf(here, # relative file paths (don't use slashes to avoid PC/Mac conflicts--can use file.path())
-                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata, janitor
+                 tidyverse, measurements, dplyr, maps, ggplot2, mapdata, janitor, stringr, readr
                  )
 
 library(dplyr)
@@ -25,13 +27,18 @@ library(measurements)
 library(maps)
 library(ggplot2)
 library(mapdata)
+library(here)
+library(U.Taxonstand)
+library(magrittr)
+library(stringr)
+library(readr)
 
-
+detach("package:plyr")
 
 ```
 
 ```{r}
-tidy_ungulates_4 <- read_csv(here("data/tidy_ungulates_4.csv"))
+tidy_ungulates_4 <- read_csv("data/tidy_ungulates_4.csv")
 
 
 ```
@@ -39,8 +46,8 @@ tidy_ungulates_4 <- read_csv(here("data/tidy_ungulates_4.csv"))
 ```{r}
 
 # Load required packages
-library(dplyr)
-library(stringr)
+#library(dplyr)
+#library(stringr)
 
 # Function to convert coordinates to decimal
 convert_to_decimal <- function(coord) {
@@ -199,27 +206,30 @@ tidy_ungulates_5 <- tidy_ungulates_4 %>%
     )
   )
 
-# Check the results
-print("Summary of coordinate availability:")
-tidy_ungulates_5 %>%
-  summarise(
-    total_rows = n(),
-    rows_with_both = sum(!is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
-    rows_with_only_first = sum(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)),
-    rows_with_only_second = sum(is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
-    rows_with_averages = sum(!is.na(latitude_average)),
-    rows_missing_averages = sum(is.na(latitude_average))
-  ) %>%
-  print()
+# Check the results (something went wrong in here and some of the funtions aren't working anymore, got this error when trying to reun below code: Error in `n()`:
+#! Must only be used inside data-masking verbs like `mutate()`, `filter()`, and `group_by()`.
+#Run `rlang::last_trace()` to see where the error occurred.)
+
+#print("Summary of coordinate availability:")
+#tidy_ungulates_5 %>%
+ # summarise(
+  #  total_rows = n(),
+  #  rows_with_both = sum(!is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
+  #  rows_with_only_first = sum(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)),
+  #  rows_with_only_second = sum(is.na(latitude_1_decimal) & !is.na(latitude_2_decimal)),
+  #  rows_with_averages = sum(!is.na(latitude_average)),
+  #  rows_missing_averages = sum(is.na(latitude_average))
+ # ) %>%
+#  print()
 
 # Show some examples
-print("\nSample of rows with single coordinates:")
-head(tidy_ungulates_5 %>%
-     filter(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)) %>%
-     select(ungulate_latin_name,
-            latitude_1_decimal, longitude_1_decimal,
-            latitude_2_decimal, longitude_2_decimal,
-            latitude_average, longitude_average))
+#print("\nSample of rows with single coordinates:")
+#head(tidy_ungulates_5 %>%
+    # filter(!is.na(latitude_1_decimal) & is.na(latitude_2_decimal)) %>%
+    # select(ungulate_latin_name,
+      #      latitude_1_decimal, longitude_1_decimal,
+        #    latitude_2_decimal, longitude_2_decimal,
+         #   latitude_average, longitude_average))
 
 # let's see if it worked
 
@@ -229,12 +239,12 @@ na_rows_2 <- tidy_ungulates_5 %>%
 
 # Okay, I see the rows that need to be fixed, I'm going to do that separately and download a csv
 
-write.csv(na_rows_2, "na_rows_2.csv")
+#write.csv(na_rows_2, "na_rows_2.csv")
 ```
 
 ```{r}
 
-na_rows_3 <- read_csv(here("data/na_rows_3.csv"))
+na_rows_3 <- read_csv("data/na_rows_3.csv")
 
 # Update the coordinates using rows from na_rows_3
 
@@ -267,9 +277,9 @@ I happen to know that there are a ton blank rows with just NA for the ungulate l
 #This is the best option so far, but unsure what those random lines are...
 
 # Load required packages
-library(ggplot2)
-library(maps)
-library(dplyr)
+#library(ggplot2)
+#library(maps)
+#library(dplyr)
 
 # Create dataframe with unique coordinates and family information
 unique_coords <- tidy_ungulates_6 %>%
@@ -325,9 +335,9 @@ print(table(unique_coords$ungulate_family))
 # trying again! Not right either, not enough points AND still lines though fewer
 
 # Load required packages
-library(ggplot2)
-library(maps)
-library(dplyr)
+#library(ggplot2)
+#library(maps)
+#library(dplyr)
 
 # Create dataframe with unique coordinates and family information
 unique_coords_2 <- tidy_ungulates_6 %>%
@@ -404,9 +414,9 @@ unique_coords_2 %>%
 ```{r}
 # another try
 # Load required packages
-library(ggplot2)
-library(maps)
-library(dplyr)
+#library(ggplot2)
+#library(maps)
+#library(dplyr)
 
 # Create dataframe with unique coordinates and family information
 unique_coords_3 <- tidy_ungulates_6 %>%
@@ -479,9 +489,9 @@ table(unique_coords_3$ungulate_family)
 # so close!!! Fixing the noise now?
 
 # Load required packages
-library(ggplot2)
-library(maps)
-library(dplyr)
+#library(ggplot2)
+#library(maps)
+#library(dplyr)
 
 # First get unique locations and their counts by family
 family_counts <- tidy_ungulates_6 %>%
@@ -552,9 +562,9 @@ ggplot() +
 
 ```{r}
 # Load required packages
-library(ggplot2)
-library(maps)
-library(dplyr)
+#library(ggplot2)
+#library(maps)
+#library(dplyr)
 
 # First, let's identify the problematic coordinates
 problem_coords <- tidy_ungulates_6 %>%
@@ -636,7 +646,7 @@ unique_coords_3 %>%
 
 # Still to-do: 1. remove the blank rows from the dataset 
 
-```{r}
+#```{r}
 # Attempted to use taxize below but the resolution is just not what I need, trying U.Taxonstand next
 # Install ape first
 install.packages("ape", type = "binary")
@@ -685,79 +695,181 @@ unresolved_plants <- tidy_ungulates_6 %>%
   filter(is.na(plant_corrected_name) & !is.na(plant_reported_name)) %>%
   select(plant_reported_name, plant_corrected_name, everything())
 
-```
+#```
 
 # Using U.Taxonstand instead
 
 ```{r}
-devtools::install_github("ecoinfor/U.Taxonstand")
+#devtools::install_github("ecoinfor/U.Taxonstand")
 
 # FYI, I had to read the paper myself to get this to download correctly! Cursor was freaking out. Now let's see what the rest of it's code has to say - I asked it to use the author's format so fingers crossed
 
 # Load required packages
-library(U.Taxonstand)
-library(dplyr)
+#library(U.Taxonstand)
+#library(dplyr)
 
 # Okay I realized that cursor didn't know all of the data types, it's trying to correct it in the code below
 ```
 
 ```{r}
 # Load required packages
-library(U.Taxonstand)
-library(dplyr)
-library(stringr)
+# library(U.Taxonstand)
+# library(dplyr)
+# library(stringr)
 
 # First, let's examine what we're working with
-cat("Sample of plant names:\n")
-head(tidy_ungulates_6$plant_reported_name, 20)
+# cat("Sample of plant names:\n")
+# head(tidy_ungulates_6$plant_reported_name, 20)
 
 #Great! I see a mix of: Full binomial names (e.g., "Fagonia glutinosa"), Species with "spp." (e.g., "Chloris spp."), Some possible typos (e.g., "Hereropogon" might be "Heteropogon"), Let's create a simple data frame for matching, just as a first step:
 
 # Create a simple data frame for matching
 # Create the input data frame in the exact format required
-splist <- data.frame(
-  ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
-  Name = unique(tidy_ungulates_6$plant_reported_name),
-  stringsAsFactors = FALSE
-)
+# splist <- data.frame(
+  #ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
+  #Name = unique(tidy_ungulates_6$plant_reported_name),
+  #stringsAsFactors = FALSE
+#)
 
 # Look at the structure to verify
-str(splist)
+#str(splist)
 
 # And look at the first few entries
-head(splist)
+#head(splist)
 
 
 # First, let's create a data frame exactly as shown in their example
-splist <- data.frame(
-  ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
-  SPECIES = unique(tidy_ungulates_6$plant_reported_name)
-)
+#splist <- data.frame(
+#  ID = seq_len(length(unique(tidy_ungulates_6$plant_reported_name))),
+ # SPECIES = unique(tidy_ungulates_6$plant_reported_name)
+#)
 
 # Let's look at what we have
-print("Structure of our data:")
-str(splist)
-print("\nFirst few rows:")
-head(splist)
+#print("Structure of our data:")
+#str(splist)
+#print("\nFirst few rows:")
+#head(splist)
 
 
 # Try the name matching
-res <- nameMatch(
-  spList = splist,
-  author = FALSE,
-  max.distance = 1
-)
+#res <- nameMatch(
+ # spList = splist,
+  #author = FALSE,
+  #max.distance = 1
+#)
 
 # Look at the results
-head(res)
+#head(res)
 
 #above just isn't working at the res part - going to read paper myself to try and digest it!
 ```
 
 
 =======
->>>>>>> 8dacc958bdf6525d1b47ee659b94234b396f50bc
+# >>>>>>> 8dacc958bdf6525d1b47ee659b94234b396f50bc
 
 
 
-# Okay! Back again on Feb 20th at 3:40pm. Going to start by properly reading the paper to understand it and see how the program should behave. First I want a trial commit
+# Okay! Back again on Feb 20th at 3:40pm. Going to start by properly reading the paper to understand it and see how the program should behave. First I want a trial commit. Done, it worked! 
+
+```{r}
+# paper wants the below packages installed for use
+
+# if (!require("magrittr")) install.packages("magrittr")
+
+# if (!require("plyr")) install.packages("plyr") - done at beginning, it will overwrite dplyr if downloaded again
+
+# Load required packages
+# library(U.Taxonstand)
+# library(magrittr)
+# library(plyr)
+```
+
+# before i run anything through u.taxonstand, i need to create a data frame that will match my data set. I need columns x1 (named Sorter), plant_reported_name (named "Name"), citation_abrv (named "Author") - or at least the first two columns. Then I need to download and upload the big plant list from their repository to compare to mine.
+
+```{r}
+# creating new dataframe just of the plant names to run against u.tax
+
+# Create new dataframe with selected and renamed columns, excluding NAs and blank names
+splist_plant <- tidy_ungulates_6 %>%
+  filter(!is.na(plant_reported_name), plant_reported_name != "") %>%
+  select(
+    ID = x1,
+    NAME = plant_reported_name,
+    AUTHOR = citation_abrv
+  ) %>% 
+  distinct(NAME, .keep_all = TRUE) %>% 
+  filter(!grepl("\\?", NAME))
+
+# Look at the result and count
+cat("Number of rows in new dataframe:", nrow(splist_plant), "\n\n")
+head(splist_plant)
+
+# okay done!! now for the show, I'm going to read in the three TPL dataframes
+
+#install.packages("readxl")
+#library(readxl)
+
+# above not complex enough, trying these:
+
+# Install and load the openxlsx package
+#install.packages("openxlsx")
+library(openxlsx)
+
+
+# First we need to load their database files
+dat1 <- read.xlsx(here("data/Plants_TPL_database_part1.xlsx"))
+dat2 <- read.xlsx(here("data/Plants_TPL_database_part2.xlsx"))
+dat3 <- read.xlsx(here("data/Plants_TPL_database_part3.xlsx"))
+plant_database <- rbind(dat1, dat2, dat3)
+
+# load additional genus pairs for mathing
+
+plant_genus_pairs <- read.xlsx(here("data/Plants_genus_list.xlsx"))
+
+# done! wow, starting the big show in new code chunk below
+
+# Also, downloaded tidy_ungulates_6 to not lose it again like I did above for a minute! 
+
+write.csv(tidy_ungulates_6, "tidy_ungulates_6.csv")
+
+```
+
+```{r}
+# something isn't right with code below, attempting to find the problematic row (Error:
+#! Assigned data `sp0$Rank` must be compatible with existing data.
+#✖ Existing data has 9294 rows.
+#✖ Assigned data has 9293 rows.
+#ℹ Only vectors of size 1 are recycled.)
+
+# Check for any potential issues in the names
+problematic_names <- splist_plant %>%
+  mutate(
+    has_special_chars = grepl("[^A-Za-z0-9 .]", NAME),
+    is_empty = NAME == "",
+    is_too_short = nchar(NAME) < 3
+  )
+
+# Print any potential problem cases
+print("Names with special characters:")
+filter(problematic_names, has_special_chars) %>% select(ID, NAME, AUTHOR)
+
+print("\nEmpty names:")
+filter(problematic_names, is_empty) %>% select(ID, NAME, AUTHOR)
+
+print("\nVery short names:")
+filter(problematic_names, is_too_short) %>% select(ID, NAME, AUTHOR)
+
+# Also check for any NA values
+print("\nRows with NA in NAME:")
+filter(splist_plant, is.na(NAME)) %>% select(ID, NAME, AUTHOR)
+
+
+
+# run the main function of name matching with 
+plant_name_match <- nameMatch(spList = splist_plant, spSource = plant_database, author = TRUE, max.distance = 1, genusPairs = plant_genus_pairs, Append = TRUE)
+
+# error....but looks like it got like 90% of the way there: assess tomorrow: Error in rbind(deparse.level, ...) : 
+  # numbers of columns of arguments do not match
+```
+
